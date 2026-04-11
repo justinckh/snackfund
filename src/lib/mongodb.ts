@@ -1,0 +1,29 @@
+import mongoose from "mongoose";
+
+const MONGODB_URI = process.env.MONGODB_URI!;
+
+if (!MONGODB_URI) {
+  throw new Error("MONGODB_URI environment variable is not set");
+}
+
+// Cache connection across hot-reloads in dev
+const cached = global as typeof global & {
+  mongooseConn?: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null };
+};
+
+if (!cached.mongooseConn) {
+  cached.mongooseConn = { conn: null, promise: null };
+}
+
+export async function connectDB() {
+  if (cached.mongooseConn!.conn) return cached.mongooseConn!.conn;
+
+  if (!cached.mongooseConn!.promise) {
+    cached.mongooseConn!.promise = mongoose.connect(MONGODB_URI, {
+      bufferCommands: false,
+    });
+  }
+
+  cached.mongooseConn!.conn = await cached.mongooseConn!.promise;
+  return cached.mongooseConn!.conn;
+}
