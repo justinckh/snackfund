@@ -33,6 +33,8 @@ export interface OFFProduct {
   image_front_url?: string;
   image_front_thumb_url?: string;
 
+  countries_tags?: string[];
+
   // Manually added
   verified?: boolean;
   tags?: string[];
