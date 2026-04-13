@@ -27,6 +27,7 @@ const NOVA_LABELS: Record<number, string> = {
 const QUICK_FILTERS = [
   { label: "🥗 Healthy picks", q: "__healthy__" },
   { label: "✓ Verified", q: "verified" },
+  { label: "⬡ Blockchain Verified", q: "verified" },
   { label: "🍫 Chocolate", q: "chocolate" },
   { label: "🥤 Beverages", q: "beverage" },
   { label: "🧀 Dairy", q: "dairy" },
@@ -243,7 +244,7 @@ export function SearchView() {
       <div className="flex flex-wrap gap-2">
         {QUICK_FILTERS.map(({ label, q }) => (
           <button
-            key={q}
+            key={label}
             onClick={() => { setQuery(""); handleSearch(q); }}
             className="rounded-full border border-border bg-card px-3 py-1 text-sm hover:border-primary/60 hover:bg-muted transition-colors"
           >

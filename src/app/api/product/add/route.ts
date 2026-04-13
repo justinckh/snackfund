@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       nova_group: nova_group ? Number(nova_group) : undefined,
       nutriments: nutriments ?? {},
       verified: true,
-      tags: ["verified"],
+      tags: ["verified", "blockchain"],
       image_data_url: image_data_url || undefined,
       created_t: now,
       last_modified_t: now,

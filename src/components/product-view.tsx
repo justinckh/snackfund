@@ -279,9 +279,15 @@ export function ProductView({ barcode }: { barcode: string }) {
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-extrabold tracking-tight leading-tight">{name}</h1>
                 {product.verified && (
-                  <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                    ✓ Verified
-                  </span>
+                  <>
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                      ✓ Verified
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-950/40 px-2.5 py-0.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
+                      <Link2 className="h-3 w-3" />
+                      Blockchain Verified
+                    </span>
+                  </>
                 )}
               </div>
               {product.brands && <p className="text-muted-foreground">{product.brands}</p>}
