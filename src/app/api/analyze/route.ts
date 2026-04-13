@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { type OFFProduct, productDisplayName } from "@/lib/types";
 
-const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
 export async function POST(req: Request) {
   const { product }: { product: OFFProduct } = await req.json();
 
   if (!process.env.GROQ_API_KEY) {
     return NextResponse.json({ error: "GROQ_API_KEY not set" }, { status: 503 });
   }
+
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
   const nm = product.nutriments ?? {};
   const name = productDisplayName(product);
