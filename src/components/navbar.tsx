@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Scan, Search, Zap, PlusCircle } from "lucide-react";
+import { Scan, Search, Zap, PlusCircle, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -41,6 +41,20 @@ export function Navbar() {
               <span className="hidden sm:inline">{label}</span>
             </Link>
           ))}
+
+          {/* Analyze — distinct style */}
+          <Link
+            href="/analyze"
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              pathname === "/analyze"
+                ? "bg-primary text-primary-foreground"
+                : "text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30"
+            )}
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Analyze</span>
+          </Link>
 
           {/* Add Product — distinct style */}
           <Link
