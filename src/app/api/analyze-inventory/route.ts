@@ -27,11 +27,10 @@ export async function POST(req: Request) {
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
       text = rows.map((r) => r.join(", ")).join("\n");
     } else if (fileName.endsWith(".pdf")) {
-      // Dynamically import to avoid build-time issues
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pdfParse = (await import("pdf-parse-new") as any).default ?? (await import("pdf-parse-new"));
-      const data = await pdfParse(buffer);
-      text = data.text;
+      const { getDocumentProxy, extractText } = await import("unpdf");
+      const pdf = await getDocumentProxy(new Uint8Array(buffer));
+      const { text: extracted } = await extractText(pdf, { mergePages: true });
+      text = extracted;
     } else {
       return NextResponse.json({ error: "Unsupported file type. Use CSV, XLSX, or PDF." }, { status: 400 });
     }
