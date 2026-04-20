@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, FileText, Loader2, AlertTriangle, CheckCircle, X, ShieldCheck, TrendingUp } from "lucide-react";
+import { Upload, FileText, Loader2, AlertTriangle, CheckCircle, X, ShieldCheck, TrendingUp, FileX, BadgeCheck } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
-interface Category {
+interface FlavorCategory {
   name: string;
   percentage: number;
   color: string;
@@ -23,7 +23,7 @@ interface AnalysisResult {
   overallScore: number;
   summary: string;
   advice: string;
-  categories: Category[];
+  flavourProfile: FlavorCategory[];
   flags: Flag[];
   topConcerns: string[];
   topStrengths: string[];
@@ -60,6 +60,7 @@ export default function AnalyzePage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [wrongDoc, setWrongDoc] = useState<{ reason: string } | null>(null);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +76,7 @@ export default function AnalyzePage() {
     }
     setError("");
     setResult(null);
+    setWrongDoc(null);
     setFile(f);
   }
 
@@ -84,11 +86,19 @@ export default function AnalyzePage() {
     if (f) handleFile(f);
   }
 
+  function reset() {
+    setFile(null);
+    setResult(null);
+    setWrongDoc(null);
+    setError("");
+  }
+
   async function handleAnalyze() {
     if (!file) return;
     setLoading(true);
     setError("");
     setResult(null);
+    setWrongDoc(null);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -99,6 +109,11 @@ export default function AnalyzePage() {
         body: formData,
       });
       const data = await res.json();
+
+      if (res.status === 422 && data.notSnackInventory) {
+        setWrongDoc({ reason: data.reason });
+        return;
+      }
       if (!res.ok) { setError(data.error ?? "Analysis failed."); return; }
       setResult(data);
     } catch {
@@ -113,7 +128,7 @@ export default function AnalyzePage() {
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold tracking-tight">Inventory Analysis</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Upload your snack inventory (CSV, Excel, or PDF) to get an AI-powered health breakdown.
+          Upload your snack inventory (CSV, Excel, or PDF) to get a nutritionist-grade health breakdown.
         </p>
       </div>
 
@@ -129,8 +144,7 @@ export default function AnalyzePage() {
                   <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
               </div>
-              <button onClick={() => { setFile(null); setResult(null); setError(""); }}
-                className="rounded-full p-1 hover:bg-muted transition-colors">
+              <button onClick={reset} className="rounded-full p-1 hover:bg-muted transition-colors">
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
@@ -155,9 +169,7 @@ export default function AnalyzePage() {
             </label>
           )}
 
-          {error && (
-            <p className="mt-3 text-sm text-destructive text-center">{error}</p>
-          )}
+          {error && <p className="mt-3 text-sm text-destructive text-center">{error}</p>}
 
           <Button
             onClick={handleAnalyze}
@@ -171,6 +183,27 @@ export default function AnalyzePage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Wrong document notice */}
+      {wrongDoc && (
+        <Card className="mt-6 rounded-2xl border-orange-300 bg-orange-50 dark:border-orange-800/40 dark:bg-orange-950/20">
+          <CardContent className="pt-6">
+            <div className="flex gap-4">
+              <FileX className="h-8 w-8 text-orange-500 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-orange-700 dark:text-orange-400">Document not recognised as a snack inventory</p>
+                <p className="text-sm text-orange-600 dark:text-orange-500">{wrongDoc.reason}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Please upload a snack or food inventory list, purchase order, or product catalogue containing snack items.
+                </p>
+                <button onClick={reset} className="mt-3 text-sm font-medium text-orange-700 dark:text-orange-400 underline underline-offset-2">
+                  Try a different file
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Results */}
       {result && (
@@ -190,16 +223,16 @@ export default function AnalyzePage() {
             </CardContent>
           </Card>
 
-          {/* Pie chart */}
+          {/* Flavour profile pie chart */}
           <Card className="rounded-2xl border-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Snack Composition</CardTitle>
+              <CardTitle className="text-base">Flavour Profile</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie
-                    data={result.categories}
+                    data={result.flavourProfile}
                     dataKey="percentage"
                     nameKey="name"
                     cx="50%"
@@ -208,7 +241,7 @@ export default function AnalyzePage() {
                     outerRadius={90}
                     paddingAngle={3}
                   >
-                    {result.categories.map((cat) => (
+                    {result.flavourProfile.map((cat) => (
                       <Cell key={cat.name} fill={cat.color} />
                     ))}
                   </Pie>
@@ -216,15 +249,12 @@ export default function AnalyzePage() {
                     formatter={(value) => [`${value}%`]}
                     contentStyle={{ borderRadius: "12px", border: "1px solid hsl(var(--border))", fontSize: "12px" }}
                   />
-                  <Legend
-                    formatter={(value) => <span className="text-xs">{value}</span>}
-                  />
+                  <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
                 </PieChart>
               </ResponsiveContainer>
 
-              {/* Category breakdown */}
               <div className="space-y-3 mt-2">
-                {result.categories.map((cat) => (
+                {result.flavourProfile.map((cat) => (
                   <div key={cat.name}>
                     <div className="flex items-center justify-between text-sm mb-1">
                       <span className="font-medium" style={{ color: cat.color }}>{cat.name}</span>
@@ -285,7 +315,7 @@ export default function AnalyzePage() {
           {result.flags.length > 0 && (
             <Card className="rounded-2xl border-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Flags</CardTitle>
+                <CardTitle className="text-base">Nutritional Flags</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {result.flags.map((flag, i) => (
@@ -305,13 +335,16 @@ export default function AnalyzePage() {
             </Card>
           )}
 
-          {/* Advice */}
-          <Card className="rounded-2xl border-l-4 border-l-primary border-border bg-primary/5">
+          {/* Nutritionist advice */}
+          <Card className="rounded-2xl border-l-4 border-l-emerald-500 border-border bg-emerald-50/50 dark:bg-emerald-950/10">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Recommendations</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BadgeCheck className="h-4 w-4 text-emerald-600" />
+                Nutritionist Recommendations
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm leading-relaxed">{result.advice}</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">{result.advice}</p>
             </CardContent>
           </Card>
         </div>

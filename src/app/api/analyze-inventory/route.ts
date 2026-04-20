@@ -43,37 +43,82 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not extract any text from the file." }, { status: 400 });
   }
 
-  const prompt = `You are a nutrition expert analyzing a snack inventory. The following is data extracted from an inventory document.
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+  // ── Step 1: Pre-screening ────────────────────────────────────────────────────
+  const screenPrompt = `You are a document classifier. Read the following extracted text and determine if it is a snack or food inventory, purchase order, or product list containing snack/food items.
+
+TEXT:
+${text.slice(0, 2000)}
+
+Respond ONLY with valid JSON, no markdown:
+{ "isSnackInventory": <true or false>, "reason": "<one sentence explanation>" }`;
+
+  let isSnackInventory = true;
+  let screenReason = "";
+
+  try {
+    const screen = await client.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      max_tokens: 100,
+      temperature: 0,
+      messages: [{ role: "user", content: screenPrompt }],
+    });
+    const screenRaw = screen.choices[0]?.message?.content ?? "";
+    const screenCleaned = screenRaw.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
+    const screenJson = JSON.parse(screenCleaned);
+    isSnackInventory = screenJson.isSnackInventory;
+    screenReason = screenJson.reason;
+  } catch {
+    // If screening fails, proceed anyway
+  }
+
+  if (!isSnackInventory) {
+    return NextResponse.json({
+      notSnackInventory: true,
+      reason: screenReason,
+    }, { status: 422 });
+  }
+
+  // ── Step 2: Full analysis ────────────────────────────────────────────────────
+  const prompt = `You are a registered dietitian and nutritionist analyzing a snack inventory for a client. Your role is to provide professional, evidence-based nutritional guidance.
 
 INVENTORY DATA:
 ${text.slice(0, 4000)}
 
-Analyze this snack inventory and respond ONLY with valid JSON in this exact shape, no markdown, no code fences:
+Analyze this snack inventory thoroughly and respond ONLY with valid JSON in this exact shape, no markdown, no code fences:
 {
-  "overallScore": <integer 0-100, overall healthiness of the inventory>,
-  "summary": "<2-3 sentence plain-English overview of the inventory health>",
-  "advice": "<2-3 sentences of practical advice to improve the inventory>",
-  "categories": [
-    { "name": "Healthy", "percentage": <integer>, "color": "#22c55e", "examples": ["<product>", "<product>"] },
-    { "name": "Moderate", "percentage": <integer>, "color": "#eab308", "examples": ["<product>", "<product>"] },
-    { "name": "Unhealthy", "percentage": <integer>, "color": "#ef4444", "examples": ["<product>", "<product>"] }
+  "overallScore": <integer 0-100, overall nutritional quality of the inventory>,
+  "summary": "<3 sentences: first describe what the inventory contains, then give an overall nutritional assessment, then note the most significant pattern you observe>",
+  "advice": "<3-4 sentences of specific, actionable nutritionist recommendations — mention nutrients, portion guidance, or substitution ideas based on what is actually in this inventory>",
+  "flavourProfile": [
+    { "name": "Sweet", "percentage": <integer>, "color": "#f472b6", "examples": ["<product>", "<product>"] },
+    { "name": "Savoury", "percentage": <integer>, "color": "#fb923c", "examples": ["<product>", "<product>"] },
+    { "name": "Spicy", "percentage": <integer>, "color": "#ef4444", "examples": ["<product>", "<product>"] },
+    { "name": "Nuts & Seeds", "percentage": <integer>, "color": "#a78bfa", "examples": ["<product>", "<product>"] },
+    { "name": "Other", "percentage": <integer>, "color": "#94a3b8", "examples": ["<product>", "<product>"] }
   ],
   "flags": [
-    { "type": "warning", "message": "<specific concern about the inventory>" },
-    { "type": "positive", "message": "<something good about the inventory>" }
+    { "type": "warning", "message": "<specific nutritional concern with context — e.g. high sodium, excess added sugar>" },
+    { "type": "warning", "message": "<second concern>" },
+    { "type": "positive", "message": "<a genuine nutritional strength of this inventory>" },
+    { "type": "positive", "message": "<second strength>" }
   ],
-  "topConcerns": ["<concern 1>", "<concern 2>", "<concern 3>"],
-  "topStrengths": ["<strength 1>", "<strength 2>", "<strength 3>"]
+  "topConcerns": ["<specific concern with nutrient detail>", "<concern 2>", "<concern 3>"],
+  "topStrengths": ["<specific strength with nutrient detail>", "<strength 2>", "<strength 3>"]
 }
 
-Make sure the category percentages add up to 100.`;
+Rules:
+- flavourProfile percentages must add up to exactly 100
+- Omit any flavour category with 0% rather than including it
+- Base your analysis only on what is in the inventory, not generic advice
+- Be specific — name actual products from the inventory in your flags and concerns`;
 
   try {
-    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await client.chat.completions.create({
       model: "llama-3.1-8b-instant",
-      max_tokens: 1024,
-      temperature: 0.3,
+      max_tokens: 1200,
+      temperature: 0.2,
       messages: [{ role: "user", content: prompt }],
     });
 
